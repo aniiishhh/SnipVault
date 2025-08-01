@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://snipvault_user:snipvault_password@db:5432/snipvault_db
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+    networks:
+      - snipvault-network
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=snipvault_db
+      - POSTGRES_USER=snipvault_user
+      - POSTGRES_PASSWORD=snipvault_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - snipvault-network
+
+volumes:
+  postgres_data:
+
+networks:
+  snipvault-network:
+    driver: bridge
