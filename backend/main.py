@@ -140,6 +140,41 @@ async def get_snippets(
     return snippets
 
 
+@app.get("/snippets/public/", response_model=List[SnippetResponse])
+async def get_public_snippets(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """Get all public snippets (no authentication required)."""
+    snippets = (
+        db.query(Snippet)
+        .filter(Snippet.is_public == True)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return snippets
+
+
+@app.get("/snippets/public/{snippet_id}", response_model=SnippetResponse)
+async def get_public_snippet(
+    snippet_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a specific public snippet by ID (no authentication required)."""
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.is_public == True)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Public snippet not found"
+        )
+    return snippet
+
+
 @app.post("/snippets/", response_model=SnippetResponse)
 async def create_snippet(
     snippet_data: SnippetCreate,
@@ -230,6 +265,30 @@ async def update_snippet(
     for field, value in update_data.items():
         setattr(snippet, field, value)
 
+    db.commit()
+    db.refresh(snippet)
+    return snippet
+
+
+@app.patch("/snippets/{snippet_id}/toggle-public", response_model=SnippetResponse)
+async def toggle_snippet_public(
+    snippet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Toggle the public status of a snippet (only if owned by current user)."""
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.user_id == current_user.id)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
+        )
+
+    # Toggle the is_public field
+    snippet.is_public = not snippet.is_public
     db.commit()
     db.refresh(snippet)
     return snippet
