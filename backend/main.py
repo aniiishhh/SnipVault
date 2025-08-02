@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -20,9 +20,11 @@ from schemas import (
     SnippetUpdate,
     SnippetResponse,
     TagCreate,
+    TagResponse,
 )
 from models import User, Snippet, Tag
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 app = FastAPI(
     title="SnipVault API",
@@ -128,15 +130,62 @@ async def get_snippets(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    language: Optional[str] = None,
+    tag: Optional[List[str]] = Query(None),
+    is_public: Optional[bool] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
 ):
-    """Get all snippets for the current user."""
-    snippets = (
-        db.query(Snippet)
-        .filter(Snippet.user_id == current_user.id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    """Get all snippets for the current user with optional filtering."""
+    query = db.query(Snippet).filter(Snippet.user_id == current_user.id)
+
+    # Apply filters
+    if language:
+        query = query.filter(Snippet.language == language)
+
+    if is_public is not None:
+        query = query.filter(Snippet.is_public == is_public)
+
+    if created_after:
+        try:
+            created_after_date = datetime.fromisoformat(
+                created_after.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at >= created_after_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_after date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    if created_before:
+        try:
+            created_before_date = datetime.fromisoformat(
+                created_before.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at <= created_before_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_before date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    # Apply multiple tag filters (many-to-many relationship)
+    if tag:
+        # For multiple tags, we need to ensure the snippet has ALL specified tags
+        for tag_name in tag:
+            normalized_tag = tag_name.lower()
+            # Use a subquery to find snippets that have this specific tag
+            subquery = (
+                db.query(Snippet.id)
+                .join(Snippet.tags)
+                .filter(Tag.name == normalized_tag)
+                .subquery()
+            )
+            query = query.filter(Snippet.id.in_(subquery))
+
+    # Apply pagination
+    snippets = query.offset(skip).limit(limit).all()
     return snippets
 
 
@@ -146,15 +195,58 @@ async def get_public_snippets(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    language: Optional[str] = None,
+    tag: Optional[List[str]] = Query(None),
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
 ):
-    """Get all public snippets (authentication required)."""
-    snippets = (
-        db.query(Snippet)
-        .filter(Snippet.is_public == True)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    """Get all public snippets with optional filtering (authentication required)."""
+    query = db.query(Snippet).filter(Snippet.is_public == True)
+
+    # Apply filters
+    if language:
+        query = query.filter(Snippet.language == language)
+
+    if created_after:
+        try:
+            created_after_date = datetime.fromisoformat(
+                created_after.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at >= created_after_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_after date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    if created_before:
+        try:
+            created_before_date = datetime.fromisoformat(
+                created_before.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at <= created_before_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_before date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    # Apply multiple tag filters (many-to-many relationship)
+    if tag:
+        # For multiple tags, we need to ensure the snippet has ALL specified tags
+        for tag_name in tag:
+            normalized_tag = tag_name.lower()
+            # Use a subquery to find snippets that have this specific tag
+            subquery = (
+                db.query(Snippet.id)
+                .join(Snippet.tags)
+                .filter(Tag.name == normalized_tag)
+                .subquery()
+            )
+            query = query.filter(Snippet.id.in_(subquery))
+
+    # Apply pagination
+    snippets = query.offset(skip).limit(limit).all()
     return snippets
 
 
@@ -197,10 +289,12 @@ async def create_snippet(
     # Handle tags
     if snippet_data.tags:
         for tag_name in snippet_data.tags:
+            # Normalize tag name to lowercase for case-insensitive handling
+            normalized_tag_name = tag_name.lower()
             # Check if tag exists, create if not
-            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            tag = db.query(Tag).filter(Tag.name == normalized_tag_name).first()
             if not tag:
-                tag = Tag(name=tag_name)
+                tag = Tag(name=normalized_tag_name)
                 db.add(tag)
                 db.flush()  # Flush to get the tag ID
             db_snippet.tags.append(tag)
@@ -257,9 +351,11 @@ async def update_snippet(
         # Add new tags
         if tags:
             for tag_name in tags:
-                tag = db.query(Tag).filter(Tag.name == tag_name).first()
+                # Normalize tag name to lowercase for case-insensitive handling
+                normalized_tag_name = tag_name.lower()
+                tag = db.query(Tag).filter(Tag.name == normalized_tag_name).first()
                 if not tag:
-                    tag = Tag(name=tag_name)
+                    tag = Tag(name=normalized_tag_name)
                     db.add(tag)
                     db.flush()
                 snippet.tags.append(tag)
@@ -316,6 +412,41 @@ async def delete_snippet(
     db.delete(snippet)
     db.commit()
     return {"message": "Snippet deleted successfully"}
+
+
+# Tag routes
+@app.get("/tags/", response_model=List[TagResponse])
+async def get_tags(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """Get all tags in the system (no authentication required)."""
+    tags = db.query(Tag).offset(skip).limit(limit).all()
+    return tags
+
+
+@app.post("/tags/", response_model=TagResponse)
+async def create_tag(
+    tag_data: TagCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new tag."""
+    # Normalize tag name to lowercase for case-insensitive handling
+    normalized_tag_name = tag_data.name.lower()
+    # Check if tag already exists
+    existing_tag = db.query(Tag).filter(Tag.name == normalized_tag_name).first()
+    if existing_tag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Tag already exists"
+        )
+
+    db_tag = Tag(name=normalized_tag_name)
+    db.add(db_tag)
+    db.commit()
+    db.refresh(db_tag)
+    return db_tag
 
 
 if __name__ == "__main__":
