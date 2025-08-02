@@ -142,11 +142,12 @@ async def get_snippets(
 
 @app.get("/snippets/public/", response_model=List[SnippetResponse])
 async def get_public_snippets(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
 ):
-    """Get all public snippets (no authentication required)."""
+    """Get all public snippets (authentication required)."""
     snippets = (
         db.query(Snippet)
         .filter(Snippet.is_public == True)
@@ -160,9 +161,10 @@ async def get_public_snippets(
 @app.get("/snippets/public/{snippet_id}", response_model=SnippetResponse)
 async def get_public_snippet(
     snippet_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a specific public snippet by ID (no authentication required)."""
+    """Get a specific public snippet by ID (authentication required)."""
     snippet = (
         db.query(Snippet)
         .filter(Snippet.id == snippet_id, Snippet.is_public == True)
