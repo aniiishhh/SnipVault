@@ -11,8 +11,18 @@ from auth import (
     get_user_by_email,
     get_current_user,
 )
-from schemas import UserCreate, UserResponse, UserLogin, Token
-from models import User
+from schemas import (
+    UserCreate,
+    UserResponse,
+    UserLogin,
+    Token,
+    SnippetCreate,
+    SnippetUpdate,
+    SnippetResponse,
+    TagCreate,
+)
+from models import User, Snippet, Tag
+from typing import List
 
 app = FastAPI(
     title="SnipVault API",
@@ -109,6 +119,142 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information."""
     return current_user
+
+
+# Snippet routes
+@app.get("/snippets/", response_model=List[SnippetResponse])
+async def get_snippets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """Get all snippets for the current user."""
+    snippets = (
+        db.query(Snippet)
+        .filter(Snippet.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return snippets
+
+
+@app.post("/snippets/", response_model=SnippetResponse)
+async def create_snippet(
+    snippet_data: SnippetCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new snippet for the current user."""
+    # Create the snippet
+    db_snippet = Snippet(
+        title=snippet_data.title,
+        code=snippet_data.code,
+        language=snippet_data.language,
+        description=snippet_data.description,
+        is_public=snippet_data.is_public,
+        user_id=current_user.id,
+    )
+
+    # Handle tags
+    if snippet_data.tags:
+        for tag_name in snippet_data.tags:
+            # Check if tag exists, create if not
+            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.add(tag)
+                db.flush()  # Flush to get the tag ID
+            db_snippet.tags.append(tag)
+
+    db.add(db_snippet)
+    db.commit()
+    db.refresh(db_snippet)
+    return db_snippet
+
+
+@app.get("/snippets/{snippet_id}", response_model=SnippetResponse)
+async def get_snippet(
+    snippet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a specific snippet by ID (only if owned by current user)."""
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.user_id == current_user.id)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
+        )
+    return snippet
+
+
+@app.put("/snippets/{snippet_id}", response_model=SnippetResponse)
+async def update_snippet(
+    snippet_id: int,
+    snippet_data: SnippetUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update a snippet (only if owned by current user)."""
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.user_id == current_user.id)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
+        )
+
+    # Update fields if provided
+    update_data = snippet_data.dict(exclude_unset=True)
+    if "tags" in update_data:
+        tags = update_data.pop("tags")
+        # Clear existing tags
+        snippet.tags.clear()
+        # Add new tags
+        if tags:
+            for tag_name in tags:
+                tag = db.query(Tag).filter(Tag.name == tag_name).first()
+                if not tag:
+                    tag = Tag(name=tag_name)
+                    db.add(tag)
+                    db.flush()
+                snippet.tags.append(tag)
+
+    for field, value in update_data.items():
+        setattr(snippet, field, value)
+
+    db.commit()
+    db.refresh(snippet)
+    return snippet
+
+
+@app.delete("/snippets/{snippet_id}")
+async def delete_snippet(
+    snippet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a snippet (only if owned by current user)."""
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.user_id == current_user.id)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
+        )
+
+    db.delete(snippet)
+    db.commit()
+    return {"message": "Snippet deleted successfully"}
 
 
 if __name__ == "__main__":
