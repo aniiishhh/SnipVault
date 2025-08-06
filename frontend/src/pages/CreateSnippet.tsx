@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { snippetApi } from '@/lib/api';
 import { CreateSnippetRequest } from '@/lib/types';
+import TagManager from '@/components/TagManager';
 
 // Create snippet form schema
 const createSnippetSchema = z.object({
@@ -30,6 +31,7 @@ const CreateSnippet: React.FC = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [showCustomLanguage, setShowCustomLanguage] = useState(false);
+  const [showTagManager, setShowTagManager] = useState(false);
 
   const form = useForm<CreateSnippetFormData>({
     resolver: zodResolver(createSnippetSchema),
@@ -56,6 +58,12 @@ const CreateSnippet: React.FC = () => {
 
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleTagSelect = (tag: { id: number; name: string; created_at: string }) => {
+    if (!tags.includes(tag.name)) {
+      setTags([...tags, tag.name]);
+    }
   };
 
   const handleLanguageChange = (language: string) => {
@@ -305,16 +313,30 @@ const CreateSnippet: React.FC = () => {
                 <FormItem>
                   <FormLabel className="text-gray-700 font-medium">Tags</FormLabel>
                   <div className="space-y-3">
-                    <FormControl>
-                      <Input
-                        placeholder="Type a tag and press Enter"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={handleAddTag}
-                        className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
+                    <div className="flex space-x-2">
+                      <FormControl>
+                        <Input
+                          placeholder="Type a tag and press Enter"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={handleAddTag}
+                          className="flex-1 h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowTagManager(true)}
+                        className="h-12 border-gray-200 text-gray-700 hover:bg-gray-50"
                         disabled={isLoading}
-                      />
-                    </FormControl>
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        Browse Tags
+                      </Button>
+                    </div>
                     
                     {/* Display Tags */}
                     {tags.length > 0 && (
@@ -414,6 +436,14 @@ const CreateSnippet: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Tag Manager Modal */}
+      <TagManager
+        isOpen={showTagManager}
+        onClose={() => setShowTagManager(false)}
+        onTagSelect={handleTagSelect}
+        mode="select"
+      />
     </div>
   );
 };

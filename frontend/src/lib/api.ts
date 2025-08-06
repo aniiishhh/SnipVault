@@ -98,4 +98,8 @@ export const snippetApi = {
   
   // Get a specific public snippet (no authentication required)
   getPublicSnippet: (id: number) => publicApi.get(`${endpoints.publicSnippets}/${id}`),
+  
+  // Tag management
+  getTags: () => api.get(endpoints.tags),
+  createTag: (data: { name: string }) => api.post(endpoints.tags, data),
 }; 

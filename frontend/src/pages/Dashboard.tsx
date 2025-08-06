@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SnippetCard from '@/components/SnippetCard';
+import TagManager from '@/components/TagManager';
 import { Snippet } from '@/lib/types';
 import { snippetApi } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,7 @@ const Dashboard: React.FC = () => {
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showTagManager, setShowTagManager] = useState(false);
   const navigate = useNavigate();
 
   // Fetch user snippets on component mount
@@ -191,6 +193,108 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+          {/* Public Snippets Card */}
+          <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Public Snippets</CardTitle>
+                  <CardDescription>Share and discover code</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Explore and share code snippets with the community
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full border-green-200 text-green-700 hover:bg-green-50"
+                onClick={() => navigate('/public-snippets')}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Explore Public Snippets
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Tag Management Card */}
+          <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Tag Management</CardTitle>
+                  <CardDescription>Create and manage your tags</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Organize your snippets with custom tags for better categorization
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                onClick={() => setShowTagManager(true)}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Manage Tags
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Account Info Card */}
+          <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Account Info</CardTitle>
+                  <CardDescription>Your profile details</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Username:</span>
+                  <span className="text-sm text-gray-900 font-semibold">{user?.username}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Email:</span>
+                  <span className="text-sm text-gray-900">{user?.email}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Member since:</span>
+                  <span className="text-sm text-gray-900">
+                    {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Snippets Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -257,77 +361,14 @@ const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Quick Actions */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Public Snippets Card */}
-          <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
-            <CardHeader className="pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
-                  </svg>
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Public Snippets</CardTitle>
-                  <CardDescription>Share and discover code</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                Explore and share code snippets with the community
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full border-green-200 text-green-700 hover:bg-green-50"
-                onClick={() => navigate('/public-snippets')}
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                Explore Public Snippets
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Account Info Card */}
-          <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
-            <CardHeader className="pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Account Info</CardTitle>
-                  <CardDescription>Your profile details</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Username:</span>
-                  <span className="text-sm text-gray-900 font-semibold">{user?.username}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Email:</span>
-                  <span className="text-sm text-gray-900">{user?.email}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Member since:</span>
-                  <span className="text-sm text-gray-900">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
+      
+      {/* Tag Manager Modal */}
+      <TagManager
+        isOpen={showTagManager}
+        onClose={() => setShowTagManager(false)}
+        mode="view"
+      />
     </div>
   );
 };
