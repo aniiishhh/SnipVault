@@ -191,7 +191,6 @@ async def get_snippets(
 
 @app.get("/snippets/public/", response_model=List[SnippetResponse])
 async def get_public_snippets(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
@@ -200,7 +199,8 @@ async def get_public_snippets(
     created_after: Optional[str] = None,
     created_before: Optional[str] = None,
 ):
-    """Get all public snippets with optional filtering (authentication required)."""
+    """Get all public snippets with optional filtering (no authentication required)."""
+    # This endpoint is intentionally public and doesn't require authentication
     query = db.query(Snippet).filter(Snippet.is_public == True)
 
     # Apply filters
@@ -253,10 +253,89 @@ async def get_public_snippets(
 @app.get("/snippets/public/{snippet_id}", response_model=SnippetResponse)
 async def get_public_snippet(
     snippet_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a specific public snippet by ID (authentication required)."""
+    """Get a specific public snippet by ID (no authentication required)."""
+    # This endpoint is intentionally public and doesn't require authentication
+    snippet = (
+        db.query(Snippet)
+        .filter(Snippet.id == snippet_id, Snippet.is_public == True)
+        .first()
+    )
+    if not snippet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Public snippet not found"
+        )
+    return snippet
+
+
+# Alternative public endpoints without any authentication dependencies
+@app.get("/public/snippets/", response_model=List[SnippetResponse])
+async def get_all_public_snippets(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    language: Optional[str] = None,
+    tag: Optional[List[str]] = Query(None),
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+):
+    """Get all public snippets with optional filtering (completely public endpoint)."""
+    query = db.query(Snippet).filter(Snippet.is_public == True)
+
+    # Apply filters
+    if language:
+        query = query.filter(Snippet.language == language)
+
+    if created_after:
+        try:
+            created_after_date = datetime.fromisoformat(
+                created_after.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at >= created_after_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_after date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    if created_before:
+        try:
+            created_before_date = datetime.fromisoformat(
+                created_before.replace("Z", "+00:00")
+            )
+            query = query.filter(Snippet.created_at <= created_before_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid created_before date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)",
+            )
+
+    # Apply multiple tag filters (many-to-many relationship)
+    if tag:
+        # For multiple tags, we need to ensure the snippet has ALL specified tags
+        for tag_name in tag:
+            normalized_tag = tag_name.lower()
+            # Use a subquery to find snippets that have this specific tag
+            subquery = (
+                db.query(Snippet.id)
+                .join(Snippet.tags)
+                .filter(Tag.name == normalized_tag)
+                .subquery()
+            )
+            query = query.filter(Snippet.id.in_(subquery))
+
+    # Apply pagination
+    snippets = query.offset(skip).limit(limit).all()
+    return snippets
+
+
+@app.get("/public/snippets/{snippet_id}", response_model=SnippetResponse)
+async def get_specific_public_snippet(
+    snippet_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a specific public snippet by ID (completely public endpoint)."""
     snippet = (
         db.query(Snippet)
         .filter(Snippet.id == snippet_id, Snippet.is_public == True)

@@ -33,7 +33,11 @@ api.interceptors.response.use(
   (error) => {
     // Handle 401 errors (unauthorized) - clear token and redirect to login
     // But only if we're not already on the login page to avoid infinite redirects
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    // And only for authenticated endpoints, not public ones
+    if (error.response?.status === 401 && 
+        window.location.pathname !== '/login' && 
+        !error.config.url?.includes('/public/') &&
+        !error.config.url?.includes('/snippets/public/')) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -48,7 +52,7 @@ export const endpoints = {
   login: '/auth/login',
   me: '/users/me',
   snippets: '/snippets',
-  publicSnippets: '/snippets/public',
+  publicSnippets: '/public/snippets', // Updated to use new public endpoints
   tags: '/tags',
 } as const;
 
@@ -59,4 +63,39 @@ export const apiCall = {
   put: (url: string, data: any) => api.put(url, data),
   patch: (url: string, data: any) => api.patch(url, data),
   delete: (url: string) => api.delete(url),
+};
+
+// Create a separate API instance for public endpoints (no authentication)
+export const publicApi = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Snippet-specific API functions
+export const snippetApi = {
+  // Get all user snippets
+  getUserSnippets: () => api.get(endpoints.snippets),
+  
+  // Get a specific snippet
+  getSnippet: (id: number) => api.get(`${endpoints.snippets}/${id}`),
+  
+  // Create a new snippet
+  createSnippet: (data: any) => api.post(endpoints.snippets, data),
+  
+  // Update a snippet
+  updateSnippet: (id: number, data: any) => api.put(`${endpoints.snippets}/${id}`, data),
+  
+  // Delete a snippet
+  deleteSnippet: (id: number) => api.delete(`${endpoints.snippets}/${id}`),
+  
+  // Toggle snippet visibility
+  toggleSnippetVisibility: (id: number) => api.patch(`${endpoints.snippets}/${id}/toggle-public`),
+  
+  // Get public snippets (no authentication required)
+  getPublicSnippets: () => publicApi.get(endpoints.publicSnippets),
+  
+  // Get a specific public snippet (no authentication required)
+  getPublicSnippet: (id: number) => publicApi.get(`${endpoints.publicSnippets}/${id}`),
 }; 
