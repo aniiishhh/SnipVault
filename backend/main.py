@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -69,7 +69,9 @@ async def test_db(db: Session = Depends(get_db)):
 
 
 # Authentication endpoints
-@app.post("/auth/signup", response_model=UserResponse)
+@app.post(
+    "/auth/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     """Create a new user account."""
     # Check if username already exists
@@ -348,7 +350,9 @@ async def get_specific_public_snippet(
     return snippet
 
 
-@app.post("/snippets/", response_model=SnippetResponse)
+@app.post(
+    "/snippets/", response_model=SnippetResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_snippet(
     snippet_data: SnippetCreate,
     current_user: User = Depends(get_current_user),
@@ -490,7 +494,7 @@ async def delete_snippet(
 
     db.delete(snippet)
     db.commit()
-    return {"message": "Snippet deleted successfully"}
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # Tag routes
@@ -505,7 +509,7 @@ async def get_tags(
     return tags
 
 
-@app.post("/tags/", response_model=TagResponse)
+@app.post("/tags/", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 async def create_tag(
     tag_data: TagCreate,
     current_user: User = Depends(get_current_user),

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -40,7 +40,15 @@ class TokenData(BaseModel):
 
 # Tag schemas
 class TagBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=50, description="Tag name")
+
+    @validator("name")
+    def validate_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Tag name cannot be empty")
+        if len(v.strip()) > 50:
+            raise ValueError("Tag name cannot exceed 50 characters")
+        return v.strip()
 
 
 class TagCreate(TagBase):
@@ -57,11 +65,33 @@ class TagResponse(TagBase):
 
 # Snippet schemas
 class SnippetBase(BaseModel):
-    title: str
-    code: str
-    language: str
-    description: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=200, description="Snippet title")
+    code: str = Field(..., min_length=1, description="Snippet code")
+    language: str = Field(
+        ..., min_length=1, max_length=50, description="Programming language"
+    )
+    description: Optional[str] = Field(
+        None, max_length=1000, description="Snippet description"
+    )
     is_public: bool = False
+
+    @validator("title")
+    def validate_title(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Title cannot be empty")
+        return v.strip()
+
+    @validator("code")
+    def validate_code(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Code cannot be empty")
+        return v.strip()
+
+    @validator("language")
+    def validate_language(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Language cannot be empty")
+        return v.strip()
 
 
 class SnippetCreate(SnippetBase):
